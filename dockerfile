@@ -1,8 +1,6 @@
 FROM ghcr.io/puppeteer/puppeteer:latest
 
-# Environment variables for Puppeteer
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
+
 
 # Switch to root temporarily to handle permissions
 USER root
