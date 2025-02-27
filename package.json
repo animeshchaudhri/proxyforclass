@@ -1,6 +1,8 @@
 {
   "scripts": {
-    "start": "node index.js"
+    "start": "node proxy.js",
+    "postinstall": "apt-get update && apt-get install -y libatk1.0-0 libnss3 libx11-xcb1 libxcb-dri3-0 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libasound2 libpango1.0-0"
+
   },
   "dependencies": {
     "dotenv": "^16.4.7",
