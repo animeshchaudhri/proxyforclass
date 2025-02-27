@@ -2,6 +2,12 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const schedule = require('node-schedule');
 require('dotenv').config()
+const express = require('express');
+
+
+
+const app = express();
+const PORT = process.env.PORT || 3000;
 
 class ProxyManager {
   constructor() {
@@ -34,7 +40,7 @@ class ProxyManager {
     };
 
     this.config = {
-      friendPhone: process.env.FRIEND_PHONE,
+      friendPhone: process.env.FRIEND_PHONE,   
       message: 'Please do proxy',
       sendEarlier: 20 // Minutes before class end to send message
     };
@@ -224,3 +230,22 @@ class ProxyManager {
 // Create and start the proxy manager
 const proxyManager = new ProxyManager();
 proxyManager.start();
+
+// Basic routes for health check
+app.get('/', (req, res) => {
+  res.send('WhatsApp Proxy Bot is running!');
+});
+
+// Status endpoint
+app.get('/status', (req, res) => {
+  res.json({
+    status: 'online',
+    startedAt: proxyManager.startTime,
+    scheduledJobs: proxyManager.scheduleJobs.length
+  });
+});
+
+// Start the server
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
