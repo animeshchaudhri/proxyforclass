@@ -1,16 +1,17 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const schedule = require('node-schedule');
-require('dotenv').config()
+require('dotenv').config();
 const express = require('express');
-
-
+const moment = require('moment-timezone'); 
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const TIMEZONE = process.env.TIMEZONE || 'Asia/Kolkata'; 
 
 class ProxyManager {
   constructor() {
+    this.startTime = new Date();
     this.classSchedule = {
       'Monday': [
         { class: 'ADS', endTime: '10:00', location: 'TG-421 (Gaganpreet)' },
@@ -42,7 +43,8 @@ class ProxyManager {
     this.config = {
       friendPhone: process.env.FRIEND_PHONE,   
       message: 'Please do proxy',
-      sendEarlier: 20 // Minutes before class end to send message
+      sendEarlier: 20, 
+      timezone: TIMEZONE
     };
 
     this.scheduleJobs = [];
@@ -155,21 +157,28 @@ class ProxyManager {
   }
 
   scheduleTodaysMessages() {
-    const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+    
+    const today = moment().tz(this.config.timezone).format('dddd');
     
     if (this.classSchedule[today]) {
-      console.log(`Scheduling messages for ${today}`);
+      console.log(`Scheduling messages for ${today} in timezone ${this.config.timezone}`);
       
       this.classSchedule[today].forEach(classInfo => {
         const earlierTime = this.calculateEarlierTime(classInfo.endTime);
         
-        const job = schedule.scheduleJob(`${earlierTime.minute} ${earlierTime.hour} * * *`, async () => {
+        
+        const rule = new schedule.RecurrenceRule();
+        rule.hour = earlierTime.hour;
+        rule.minute = earlierTime.minute;
+        rule.tz = this.config.timezone;
+        
+        const job = schedule.scheduleJob(rule, async () => {
           console.log(`Time to send message for ${classInfo.class} (${this.config.sendEarlier} minutes before ${classInfo.endTime})`);
           await this.sendWhatsAppMessage(classInfo.class, classInfo.location);
         });
         
         this.scheduleJobs.push(job);
-        console.log(`Scheduled message for ${classInfo.class} at ${earlierTime.hour}:${earlierTime.minute.toString().padStart(2, '0')}`);
+        console.log(`Scheduled message for ${classInfo.class} at ${earlierTime.hour}:${earlierTime.minute.toString().padStart(2, '0')} ${this.config.timezone}`);
       });
     } else {
       console.log(`No classes scheduled for ${today}`);
@@ -177,10 +186,15 @@ class ProxyManager {
   }
 
   scheduleTestMessage(hour, minute) {
-    console.log(`Scheduling test message for ${hour}:${minute}`);
+    console.log(`Scheduling test message for ${hour}:${minute} ${this.config.timezone}`);
     
-    const job = schedule.scheduleJob(`${minute} ${hour} * * *`, async () => {
-      console.log(`Sending test message at scheduled time ${hour}:${minute}`);
+    const rule = new schedule.RecurrenceRule();
+    rule.hour = hour;
+    rule.minute = minute;
+    rule.tz = this.config.timezone;
+    
+    const job = schedule.scheduleJob(rule, async () => {
+      console.log(`Sending test message at scheduled time ${hour}:${minute} ${this.config.timezone}`);
       await this.sendTestMessage();
     });
     
@@ -189,10 +203,15 @@ class ProxyManager {
   }
   
   scheduleCustomMessage(hour, minute, message) {
-    console.log(`Scheduling custom message for ${hour}:${minute}`);
+    console.log(`Scheduling custom message for ${hour}:${minute} ${this.config.timezone}`);
     
-    const job = schedule.scheduleJob(`${minute} ${hour} * * *`, async () => {
-      console.log(`Sending custom message at scheduled time ${hour}:${minute}`);
+    const rule = new schedule.RecurrenceRule();
+    rule.hour = hour;
+    rule.minute = minute;
+    rule.tz = this.config.timezone;
+    
+    const job = schedule.scheduleJob(rule, async () => {
+      console.log(`Sending custom message at scheduled time ${hour}:${minute} ${this.config.timezone}`);
       await this.sendWhatsAppMessage("Custom", "N/A", message);
     });
     
@@ -210,7 +229,7 @@ class ProxyManager {
       this.classSchedule[day] = newSchedule;
       console.log(`Schedule for ${day} updated`);
       
-      // Reschedule if it's the current day
+      
       const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
       if (today === day) {
         this.clearScheduledJobs();
@@ -221,31 +240,40 @@ class ProxyManager {
     }
   }
 
+ 
+  getCurrentTimeInfo() {
+    return {
+      serverTime: new Date().toString(),
+      localTime: moment().tz(this.config.timezone).toString(),
+      timezone: this.config.timezone,
+      timezoneOffset: moment().tz(this.config.timezone).format('Z')
+    };
+  }
+
   start() {
     this.client.initialize();
     console.log('Proxy Manager initialized');
   }
 }
 
-// Create and start the proxy manager
+
 const proxyManager = new ProxyManager();
 proxyManager.start();
 
-// Basic routes for health check
 app.get('/', (req, res) => {
   res.send('WhatsApp Proxy Bot is running!');
 });
 
-// Status endpoint
+
 app.get('/status', (req, res) => {
   res.json({
     status: 'online',
     startedAt: proxyManager.startTime,
-    scheduledJobs: proxyManager.scheduleJobs.length
+    scheduledJobs: proxyManager.scheduleJobs.length,
+    timeInfo: proxyManager.getCurrentTimeInfo()
   });
 });
 
-// Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).send('OK');
 });
@@ -253,4 +281,5 @@ app.get('/health', (req, res) => {
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Current time in ${TIMEZONE}: ${moment().tz(TIMEZONE).format('YYYY-MM-DD HH:mm:ss')}`);
 });
