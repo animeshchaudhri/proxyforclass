@@ -108,7 +108,7 @@ class ProxyManager {
 
   async sendTestMessage() {
     try {
-      const chatId = `${this.config.friendPhone}@c.us`;
+      const chatId = `${process.env.MY_NUMBER}@c.us`;
       const testMessage = 'This is a test message from the class notification bot. If you receive this, the bot is working correctly!';
       
       await this.client.sendMessage(chatId, testMessage);
