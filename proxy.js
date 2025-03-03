@@ -264,7 +264,6 @@ app.get('/', (req, res) => {
   res.send('WhatsApp Proxy Bot is running!');
 });
 
-
 app.get('/status', (req, res) => {
   res.json({
     status: 'online',
@@ -272,6 +271,70 @@ app.get('/status', (req, res) => {
     scheduledJobs: proxyManager.scheduleJobs.length,
     timeInfo: proxyManager.getCurrentTimeInfo()
   });
+});
+
+// New API endpoints for sending test messages
+app.use(express.json());
+// app.use(cors(*));
+
+app.post('/api/send-test-message', async (req, res) => {
+  try {
+    const success = await proxyManager.sendTestMessage();
+    if (success) {
+      res.status(200).json({ success: true, message: 'Test message sent successfully' });
+    } else {
+      res.status(500).json({ success: false, message: 'Failed to send test message' });
+    }
+  } catch (error) {
+    console.error('Error in /api/send-test-message endpoint:', error);
+    res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+  }
+});
+
+app.post('/api/send-custom-message', async (req, res) => {
+  try {
+    const { message } = req.body;
+    
+    if (!message) {
+      return res.status(400).json({ success: false, message: 'Message body is required' });
+    }
+    
+    const success = await proxyManager.sendWhatsAppMessage("Custom", "N/A", message);
+    
+    if (success) {
+      res.status(200).json({ success: true, message: 'Custom message sent successfully' });
+    } else {
+      res.status(500).json({ success: false, message: 'Failed to send custom message' });
+    }
+  } catch (error) {
+    console.error('Error in /api/send-custom-message endpoint:', error);
+    res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+  }
+});
+
+app.post('/api/schedule-message', async (req, res) => {
+  try {
+    const { hour, minute, message } = req.body;
+    
+    if (hour === undefined || minute === undefined || !message) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Hour, minute, and message are required' 
+      });
+    }
+    
+    const job = proxyManager.scheduleCustomMessage(parseInt(hour), parseInt(minute), message);
+    
+    res.status(200).json({ 
+      success: true, 
+      message: `Message scheduled for ${hour}:${minute} ${proxyManager.config.timezone}`,
+      scheduledTime: `${hour}:${minute}`,
+      timezone: proxyManager.config.timezone
+    });
+  } catch (error) {
+    console.error('Error in /api/schedule-message endpoint:', error);
+    res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+  }
 });
 
 app.get('/health', (req, res) => {
